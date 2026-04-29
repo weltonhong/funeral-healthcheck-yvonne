@@ -46,6 +46,13 @@ CALENDLY_URL = (
     "yvonne-reese-marketing-audit"
 )
 
+# Rep block printed on every page of the CTA footer. BRAND_LINE differs
+# between SCMM ("Senior Care Marketing Max") and RRM ("Ring Ring
+# Marketing") deploys so the funeral/cemetery RRM repos use this block.
+REP_NAME = "Yvonne Reese"
+REP_EMAIL = "Yvonne.Reese@RingRingMarketing.com"
+BRAND_LINE = "Ring Ring Marketing  |  (888) 383-2848"
+
 
 def generate_qr_png_bytes(url):
     """Build a high-error-correction QR PNG and return its raw bytes.
@@ -150,12 +157,12 @@ class CTAFooterCanvas(pdfcanvas.Canvas):
             ("Helvetica-Bold", 11,
              "call and the next pre-need family while your phone stays quiet."),
             ("Helvetica", 10,
-             "We close these gaps for funeral homes across the country.  Call today."),
+             "We close these gaps for funeral homes like yours.  Call today."),
         ]
         contact = [
-            ("Helvetica-Bold", 11.5, "Yvonne Reese, Sales Consultant"),
-            ("Helvetica", 10, "Yvonne.Reese@RingRingMarketing.com"),
-            ("Helvetica-Bold", 11.5, "Ring Ring Marketing  |  (888) 383-2848"),
+            ("Helvetica-Bold", 11.5, f"{REP_NAME}, Sales Consultant"),
+            ("Helvetica", 10, REP_EMAIL),
+            ("Helvetica-Bold", 11.5, BRAND_LINE),
         ]
 
         # Vertical layout: 3 tagline lines on top, 3 contact lines on bottom
