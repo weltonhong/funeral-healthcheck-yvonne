@@ -1222,7 +1222,7 @@ def run_health_check(business, cities, state, listing=None):
                 return true_label
             if v is False:
                 return false_label
-            return "?"
+            return "Couldn't check"
 
         psi_score = web.get("pagespeed_score")
         if psi_score is None:
@@ -1242,10 +1242,10 @@ def run_health_check(business, cities, state, listing=None):
             f"Recent obituary (30d):    {yn(c.get('recent_obituary'), 'Yes', 'No (or stale)')}",
             f"Livestream / tribute:     {yn(c.get('livestream_offering'), 'Yes', 'No')}",
             f"Platform:                 {platform}",
-            f"Grade: {web.get('grade', 'F')}",
+            f"Grade: {web.get('grade') or 'none (too little could be read)'}",
         ]
         print_section("WEBSITE:", web_lines)
-        web_grade = web.get("grade", "F")
+        web_grade = web.get("grade")
     results["website_grade"] = web_grade
 
     # Print Reviews snapshot

@@ -542,7 +542,7 @@ if st.session_state.get("scan_done"):
                     ("livestream_offering", "Livestream / tribute video"),
                 ]:
                     v = checks.get(k)
-                    mark = "✅" if v is True else ("❌" if v is False else "—")
+                    mark = "✅" if v is True else ("❌" if v is False else "Couldn't check")
                     st.write(f"- {label}: {mark}")
                 platform = web.get("platform")
                 if platform and platform != "Unknown":

@@ -415,6 +415,13 @@ def _build_recommendations_top2(results):
     ]
 
 
+def _web_answer(value, no_text):
+    """Yes / the No text / "Couldn't check" (None: the page the check needed could not be read)."""
+    if value is None:
+        return "Couldn't check"
+    return "Yes" if value else no_text
+
+
 def build_pdf(results):
     business = results.get("business", "Prospect")
     city = results.get("city", "")
@@ -667,21 +674,21 @@ def build_pdf(results):
         psi_score = web.get("pagespeed_score")
         platform = web.get("platform") or "Unknown"
         bits = []
-        bits.append("Real photos: " + ("Yes" if wc.get("real_photos") else "No (stock)"))
+        bits.append("Real photos: " + _web_answer(wc.get("real_photos"), "No (stock)"))
         if psi_score is not None:
             bits.append(f"PageSpeed: {psi_score}/100")
         else:
-            bits.append("PageSpeed: ?")
-        bits.append("Family/owner story: " + ("Yes" if wc.get("family_owner_story") else "No"))
-        bits.append("Pre-need form: " + ("Yes" if wc.get("preneed_form") else "No"))
-        bits.append("Schema: " + ("Yes" if wc.get("localbusiness_schema") else "No"))
-        bits.append("Reviews widget: " + ("Yes" if wc.get("google_reviews_widget") else "No"))
-        bits.append("Recent obit: " + ("Yes" if wc.get("recent_obituary") else "No"))
-        bits.append("Livestream: " + ("Yes" if wc.get("livestream_offering") else "No"))
+            bits.append("PageSpeed: Couldn't check")
+        bits.append("Family/owner story: " + _web_answer(wc.get("family_owner_story"), "No"))
+        bits.append("Pre-need form: " + _web_answer(wc.get("preneed_form"), "No"))
+        bits.append("Schema: " + _web_answer(wc.get("localbusiness_schema"), "No"))
+        bits.append("Reviews widget: " + _web_answer(wc.get("google_reviews_widget"), "No"))
+        bits.append("Recent obit: " + _web_answer(wc.get("recent_obituary"), "No"))
+        bits.append("Livestream: " + _web_answer(wc.get("livestream_offering"), "No"))
         web_detail = "  |  ".join(bits)
         if platform and platform != "Unknown":
             web_detail += f"<br/><b>Platform:</b> {platform}"
-        web_grade_display = grades.get("website") or "F"
+        web_grade_display = grades.get("website") or "N/A"
 
     # Ads per bucket
     ads_lines = []
