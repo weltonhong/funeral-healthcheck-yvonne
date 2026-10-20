@@ -49,6 +49,7 @@ except Exception:
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 import website_audit  # noqa: E402
+import map_identity  # noqa: E402  (which map card is the prospect)
 import name_matcher  # noqa: E402
 
 
@@ -505,6 +506,7 @@ def build_pack_from_seo(buckets, seo_per_bucket):
             "rank": lp.get("rank"),
             "in_3_pack": bool(lp.get("in_3_pack")),
             "top_3": lp.get("top_3") or [],
+            "maybe_rank": lp.get("maybe_rank"),
             # Carried so the renderers can tell a CONFIRMED absence of a map
             # pack from one nobody could confirm. Without it the two collapse
             # and print the same sentence.
@@ -539,7 +541,7 @@ def ddg_html_search(query):
     return results
 
 
-def check_seo_per_bucket(business, website, buckets):
+def check_seo_per_bucket(business, website, buckets, own_cids=()):
     """For each bucket, run the SERP rank script with that bucket's query.
 
     Each bucket uses its own UULE so the result is geo-targeted to that city.
@@ -566,6 +568,7 @@ def check_seo_per_bucket(business, website, buckets):
                     "--domain", biz_domain,
                     "--city", geo_city,
                     "--queries", query,
+                    "--cids", ",".join(own_cids),
                 ],
                 capture_output=True, text=True, timeout=120,
             )
@@ -940,7 +943,8 @@ def grade_3pack_multi(pack):
     # None rather than F.
     buckets = [b for b in buckets
                if not (results.get(b) or {}).get("error")
-               and (results.get(b) or {}).get("top_3")]
+               and (results.get(b) or {}).get("top_3")
+               and not (results.get(b) or {}).get("maybe_rank")]
     total = len(buckets)
     found = sum(1 for b in buckets if (results.get(b) or {}).get("in_3_pack"))
     return grade_count_based(found, total)
@@ -1037,6 +1041,9 @@ def run_health_check(business, cities, state):
     results["google_intel"] = intel
     target = intel.get("target") or {}
     competitors = intel.get("competitors") or []
+    # The prospect's own listing's place id: how map cards are matched to
+    # them (scripts/map_identity.py, Welton 2026-10-20).
+    own_cids = map_identity.own_cids(target, business)
     website = target.get("website", "")
 
     target_count = target.get("review_count")
@@ -1082,7 +1089,7 @@ def run_health_check(business, cities, state):
 
     with ThreadPoolExecutor(max_workers=3) as ex:
         futures = {
-            ex.submit(check_seo_per_bucket, business, website, buckets): "seo",
+            ex.submit(check_seo_per_bucket, business, website, buckets, own_cids): "seo",
             ex.submit(check_website, website): "website",
             ex.submit(check_reviews_snapshot, business, home_city, state, intel): "reviews",
         }
@@ -1119,6 +1126,9 @@ def run_health_check(business, cities, state):
         top_3_str = ", ".join(top_3_list[:3])
         if d.get("in_3_pack"):
             return f"{lab:<{label_width}} FOUND rank {d['rank']} (Top 3: {top_3_str})"
+        if d.get("maybe_rank"):
+            return (f"{lab:<{label_width}} Couldn't confirm: #{d['maybe_rank']} may be you "
+                    f"(Top 3: {top_3_str})")
         return f"{lab:<{label_width}} NOT FOUND (Top 3: {top_3_str})"
 
     pack_grade = grade_3pack_multi(pack)
