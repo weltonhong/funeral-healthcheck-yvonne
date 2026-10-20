@@ -14,6 +14,7 @@ from pathlib import Path
 
 import headline
 import listing_confirm
+import ads_words
 
 import qrcode
 
@@ -339,14 +340,13 @@ def _build_recommendations_top2(results):
         d = ads_per_bucket.get(label) or {}
         comps = d.get("competitors_running_ads") or []
         all_ads = d.get("all_advertisers") or []
-        if (comps or len(all_ads) >= 2) and not d.get("prospect_running_ads"):
+        if (comps or len(all_ads) >= 2) and not d.get("prospect_running_ads") and not d.get("prospect_maybe_ad"):
             display_names = [c["name"] for c in comps[:3]] if comps else all_ads[:3]
             names = ", ".join(display_names)
             score = 75 + len(all_ads) * 3
             candidates.append((score,
                 f"<b>{names}</b> are paying Google to put their phone number above "
-                f"everything else when families search \"{label}\". You are not in "
-                f"that auction. Every click on a sponsored result is a family handing "
+                f"everything else when families search \"{label}\". Your ad was not there when we searched. Every click on a sponsored result is a family handing "
                 f"their at-need call to your competitor before they ever see your name."
             ))
             break
@@ -706,10 +706,10 @@ def build_pdf(results):
         elif advs:
             ads_lines.append(f"<b>{label}:</b> {', '.join(advs)}")
         else:
-            ads_lines.append(f"<b>{label}:</b> No ads detected")
+            ads_lines.append(f"<b>{label}:</b> " + ads_words.none_seen())
     ads_lines.append(
         f"<b>{business}:</b> "
-        + ("Running" if business_running_anywhere else "Not running")
+        + ads_words.summary(ads, list(ads))
     )
     ads_detail = "<br/>".join(ads_lines) or "No data"
 
