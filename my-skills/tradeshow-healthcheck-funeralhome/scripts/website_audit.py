@@ -511,6 +511,9 @@ def check_recent_obituary(home_html, base_url):
         or find_internal_link_by_path(home_html, base_url, OBIT_PATH_FALLBACKS)
     )
     if not obit_url:
+        # No obituaries page found from the homepage is not "no recent obituary": the page may be
+        # behind a menu we cannot read. Couldn't check, never a No (Welton 2026-10-21).
+        _note_unread(base_url, "no obituaries page found from the homepage")
         return {"pass": False, "last_obit": None, "obit_url": None}
     page_html, status, _ = fetch_page(obit_url, timeout=12)
     if not page_html or not status or status >= 400:
