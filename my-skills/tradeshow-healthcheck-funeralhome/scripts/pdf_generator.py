@@ -181,6 +181,9 @@ class CTAFooterCanvas(pdfcanvas.Canvas):
         ]
 
         all_lines = tagline + contact
+        if not getattr(CTAFooterCanvas, "gaps_measured", True):
+            # "Every week these gaps stay open" only beside a gap the sheet measured (Welton 2026-10-21).
+            all_lines = [(f, z, "") for f, z, _ in tagline[:2]] + all_lines[2:]
         text_center_x = (text_left + text_right) / 2
         for (font, size, text), y in zip(all_lines, positions):
             self.setFont(font, size)
@@ -335,8 +338,7 @@ def _build_recommendations_top2(results):
             candidates.append((score,
                 f"<b>{comps}</b> own the Google Map Pack for \"{target_bucket}\". "
                 f"When a family searches that, those funeral homes get the first call. "
-                f"Your name is not in the top 3 on the map. Every search is a family that "
-                f"picks up the phone and dials your competitor instead of you."
+                f"Your name is not in the top 3 on the map."
             ))
 
     # ----- Reviews: name the competitor and the gap ---------------------
@@ -348,8 +350,7 @@ def _build_recommendations_top2(results):
         candidates.append((score,
             f"You have <b>{rc}</b> Google reviews. {comp_name} has <b>{comp_rc}</b>. "
             f"When a family is choosing between two funeral homes at 11pm and one "
-            f"has more proof, they call that one. Every review gap is an at-need "
-            f"call going to your competitor instead of your director."
+            f"has more proof, they call that one."
         ))
 
     # ----- Ads: name the advertisers ---------------------------------
@@ -362,8 +363,7 @@ def _build_recommendations_top2(results):
             names = ", ".join(display_names)
             score = 75 + len(all_ads) * 3
             candidates.append((score,
-                f"<b>{names}</b> are paying Google to show their ad when families search \"{label}\". Your ad was not there when we searched. Every click on a sponsored result is a family handing "
-                f"their at-need call to your competitor before they ever see your name."
+                f"<b>{names}</b> are paying Google to show their ad when families search \"{label}\". Your ad was not there when we searched."
             ))
             break
 
@@ -379,8 +379,7 @@ def _build_recommendations_top2(results):
         candidates.append((score,
             f"Families searching \"{labels_str}\" scroll the regular Google "
             f"results and your funeral home is not on the first page. They are "
-            f"at-need and need to make a decision today. Every researcher "
-            f"who never finds you is a case going to whoever does show up."
+            f"at-need and need to make a decision today."
         ))
 
     # ----- Website: only the truly painful failures --------------------
@@ -390,8 +389,7 @@ def _build_recommendations_top2(results):
         score = 70
         candidates.append((score,
             f"Your homepage scores <b>{psi}/100</b> on mobile speed. Families on "
-            f"iPhones at 2am are left waiting on a page Google scores as slow, and a slow page loses them before it loads. Every bounce is an "
-            f"at-need call you should have answered that you never will."
+            f"iPhones at 2am are left waiting on a page Google scores as slow, and a slow page loses them before it loads."
         ))
     elif web_checks.get("recent_obituary") is False:
         score = 60
@@ -600,7 +598,7 @@ def build_pdf(results):
 
     filtered_comps = [
         c for c in intel_comps
-        if c.get("name") and not _is_self(c.get("name", ""))
+        if c.get("name") and not measured.same_listing(c, (results.get("google_intel") or {}).get("target"), business)
     ]
     top_3_comps = sorted(
         filtered_comps,
@@ -793,6 +791,7 @@ def build_pdf(results):
     # Recommendations
     # Nothing measured to say: no section at all, never a sentence built on a failed search.
     recs = build_recommendations(results)
+    CTAFooterCanvas.gaps_measured = bool(recs)
     if recs:
         story.append(Paragraph("WHERE YOUR CALLS ARE GOING", h_section))
     for rec in recs:
