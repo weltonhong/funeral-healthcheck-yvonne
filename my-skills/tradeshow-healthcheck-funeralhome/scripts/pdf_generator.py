@@ -15,6 +15,7 @@ from pathlib import Path
 
 import headline
 import listing_confirm
+import site_reader
 import ads_words
 import ads_records
 from xml.sax.saxutils import escape
@@ -384,14 +385,8 @@ def _build_recommendations_top2(results):
             f"is that the home is not actively serving families, and they bounce "
             f"to the home whose obit page looks alive."
         ))
-    elif web_checks.get("livestream_offering") is False:
-        score = 55
-        candidates.append((score,
-            f"Your website does not mention livestream or tribute video offerings. "
-            f"Post-COVID, families with out-of-town relatives expect to be able to "
-            f"stream the service. When that is missing, they call the funeral home "
-            f"that advertises it, and you do not get the case."
-        ))
+    # No livestream line (Welton 2026-10-29): livestreaming is the funeral home's own service and not one we sell, so
+    # the line pointed at a gap we cannot fix. Removed, not replaced.
     elif web_checks.get("google_reviews_widget") is False and rc >= 20:
         score = 45
         candidates.append((score,
@@ -686,6 +681,8 @@ def build_pdf(results):
     if web.get("unverified"):
         reason = web.get("unverified_reason") or web.get("error") or "blocked"
         web_detail = reason if reason.startswith("Couldn't check") else f"Couldn't check: {reason}"
+        if site_reader.moved_note(web):
+            web_detail = "<b>%s</b>" % escape(site_reader.moved_note(web, sheet=True))    # the finding, said plainly
         web_grade_display = "N/A"
     else:
         wc = web.get("checks", {})
@@ -703,7 +700,6 @@ def build_pdf(results):
         bits.append("Schema: " + _web_answer(wc.get("localbusiness_schema"), "No"))
         bits.append("Reviews widget: " + _web_answer(wc.get("google_reviews_widget"), "No"))
         bits.append("Recent obit: " + _web_answer(wc.get("recent_obituary"), "No"))
-        bits.append("Livestream: " + _web_answer(wc.get("livestream_offering"), "No"))
         web_detail = "  |  ".join(bits)
         if platform and platform != "Unknown":
             web_detail += f"<br/><b>Platform:</b> {platform}"

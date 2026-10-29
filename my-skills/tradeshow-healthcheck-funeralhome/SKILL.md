@@ -34,7 +34,7 @@ Runs a fast online presence audit on a funeral home prospect at a trade show boo
 1. A live scorecard printed to the terminal as each check completes (so the prospect sees it happening in real time)
 2. A branded one-page Ring Ring Marketing PDF saved to the Desktop
 
-This is a fork of `tradeshow-healthcheck-homecare`, retooled for funeral home language, search intent (funeral home + cremation), and website checks (recent obituaries, livestream, pre-need, family-owner story). The CTA routes to Yvonne Reese.
+This is a fork of `tradeshow-healthcheck-homecare`, retooled for funeral home language, search intent (funeral home + cremation), and website checks (recent obituaries, pre-need, family-owner story). The CTA routes to Yvonne Reese.
 
 ## Input
 
@@ -103,7 +103,7 @@ Funeral home is the primary at-need search. Cremation is the second largest at-n
 | Google Reviews | google_intel.py (Google Places API) | Target reviews + top competitor reviews + gap |
 | Google 3-Pack | Per-city Google SERP -> Local Map Pack block | In/out of top 3 from each city; cremation 3-pack from home city |
 | SEO Organic | ScrapingBee + UULE per city (Playwright fallback) | Rank for "funeral home [city] [state]" from each city; "cremation [city] [state]" from home city |
-| Website | requests.get + PageSpeed Insights API + subpage fetches | 8 hard checks: real photos, PageSpeed mobile, family/owner About story, intake form (pre-need), LocalBusiness schema, Google reviews widget, recent obituaries (30d), livestream/tribute video offering. Also detects platform (Frazer, Tukios, FuneralOne, CFS, Gather). |
+| Website | requests.get + PageSpeed Insights API + subpage fetches | 7 hard checks: real photos, PageSpeed mobile, family/owner About story, intake form (pre-need), LocalBusiness schema, Google reviews widget, recent obituaries (30d). No livestream check: it is the funeral home's own service, not one we sell (Welton 2026-10-29). Also detects platform (Frazer, Tukios, FuneralOne, CFS, Gather). |
 | Reviews Snapshot | Google Places + DDG search | Google + Facebook + Yelp counts/links |
 | Competitor Ads | Same SERP HTML from SEO check; parses `div#tads` per city | Real Google ad advertisers per city |
 
@@ -162,7 +162,6 @@ WEBSITE:
   LocalBusiness schema:     No
   Google reviews widget:    No
   Recent obituary (30d):    Yes
-  Livestream / tribute:     No
   Platform:                 FuneralOne
   Grade: D
 

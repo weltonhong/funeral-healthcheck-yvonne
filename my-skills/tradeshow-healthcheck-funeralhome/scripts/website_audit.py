@@ -1,7 +1,7 @@
 """
 Website Audit - Trade Show Health Check (Funeral Home Edition, Hard Mode)
 
-Fetches a homepage and runs 8 hard checks designed to surface real issues
+Fetches a homepage and runs 7 hard checks designed to surface real issues
 the prospect doesn't know about. These are intentionally strict so most
 funeral home sites do not score an A.
 
@@ -21,14 +21,14 @@ Checks:
   6. Google reviews widget embedded on the site.
   7. Recent obituary posted in the last 30 days (NEW -- a stale obit page
      signals the website is not actively maintained, which families notice).
-  8. Livestream / tribute video offering mentioned (NEW -- post-COVID this
-     is table stakes for at-need families with out-of-town relatives).
+  (A livestream / tribute video check was removed, Welton 2026-10-29: livestreaming is the funeral
+  home's own service and not one we sell, so it is not measured, printed or graded.)
 
 We also detect the platform when possible (Frazer, Tukios, FuneralOne,
 CFS, Gather) and surface it as a sales-call data point. Platform is NOT
 graded.
 
-Grade: A (8/8), B (6-7), C (3-5), D (1-2), F (0)
+Grade: share of the 7 checks passed, scaled to 8: A (8/8), B (6-7), C (3-5), D (1-2), F (0)
 
 Usage:
     python website_audit.py --url https://example.com
@@ -46,6 +46,8 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
+
+import site_reader   # the shared site reader, pinned byte-identical across the five tools (2026-10-29)
 
 
 HEADERS = {
@@ -164,12 +166,19 @@ def find_internal_link(html, base_url, url_keywords):
         for kw in url_keywords:
             if kw in href_low:
                 if href.startswith("http"):
-                    return href
-                if href.startswith("//"):
-                    return "https:" + href
-                if href.startswith("/"):
-                    return base_url + href
-                return urllib.parse.urljoin(base_url + "/", href)
+                    url = href
+                elif href.startswith("//"):
+                    url = "https:" + href
+                elif href.startswith("/"):
+                    url = base_url + href
+                else:
+                    url = urllib.parse.urljoin(base_url + "/", href)
+                if site_reader.same_site(url, base_url):
+                    return url
+                # Another site's page is not theirs (Welton 2026-10-29): not read, and a No that needed it is
+                # "couldn't check". Look at the next link.
+                _note_unread(url, "another site")
+                break
     return None
 
 
@@ -521,6 +530,16 @@ def check_recent_obituary(home_html, base_url):
     today = datetime.date.today()
     valid = [d for d in dates if d <= today and d.year >= 2015]
     if not valid:
+        # A TributeTech list is loaded in the browser, so the page itself carries no dates (Welton 2026-10-29: 10 of
+        # 52 readable funeral home sites read "couldn't check" this way). Its cards come from one request.
+        try:
+            tt = site_reader.tributetech_newest(page_html, obit_url, HEADERS)
+        except Exception as e:
+            _note_unread(obit_url, "TributeTech list not read: %s" % str(e)[:60])
+            tt = None
+        if tt and tt["newest"]:
+            valid = [d for d in [tt["newest"]] if d <= today and d.year >= 2015]
+    if not valid:
         _note_unread(obit_url, "no dates readable on the page")
         return {"pass": False, "last_obit": None, "obit_url": obit_url}
     most_recent = max(valid)
@@ -530,46 +549,6 @@ def check_recent_obituary(home_html, base_url):
         "last_obit": most_recent.isoformat(),
         "obit_url": obit_url,
     }
-
-
-# ----------------------------- 6. Livestream / tribute video -----------------------------
-
-LIVESTREAM_HINTS = [
-    "livestream", "live-stream", "live stream", "live streaming",
-    "webcast", "web-cast", "web cast", "webcasting",
-    "tribute video", "tribute videos", "memorial video", "memorial videos",
-    "video tribute", "video tributes", "life tribute video",
-    "vimeo.com", "youtube.com/embed",
-    "tukios", "funeralone", "framecast", "funeral live", "tribute stream",
-    "tribute archive video", "lifetributes",
-    "stream the service", "view the service", "watch the service",
-    "broadcast the service", "stream funerals", "stream services",
-]
-
-
-def check_livestream_offering(home_html, base_url):
-    """Pass if the homepage (or an obvious linked services page) advertises
-    a livestream / tribute video offering."""
-    home_lower = (home_html or "").lower()
-    for h in LIVESTREAM_HINTS:
-        if h in home_lower:
-            return True
-
-    services_url = find_internal_link(
-        home_html or "", base_url,
-        ["/services", "/our-services", "/livestream", "/live-stream",
-         "/webcast", "/tribute", "/video"],
-    )
-    if not services_url:
-        return False
-    page_html, status, _ = fetch_page(services_url, timeout=8)
-    if not page_html or not status or status >= 400:
-        return False
-    page_lower = page_html.lower()
-    for h in LIVESTREAM_HINTS:
-        if h in page_lower:
-            return True
-    return False
 
 
 # ----------------------------- 7. LocalBusiness schema -----------------------------
@@ -719,6 +698,23 @@ def audit(url):
             "checks": {},
             "grade": "F",
         }
+    moved = site_reader.landed_elsewhere(url, final_url)
+    if moved:
+        # Before the error check: an address that lands on another site, even one that answers with an error, is
+    # the finding. The address we have lands on another site (Welton 2026-10-29): another site is not theirs to audit, and
+        # where it went is the finding ("is your website still at that address?").
+        return {
+            "url": final_url,
+            "status": status,
+            "error": "the address goes to another site",
+            "checks": {},
+            "grade": None,
+            "unverified": True,
+            "unverified_reason": site_reader.MOVED % (site_reader.site_name(url), moved),
+            "moved_from": site_reader.site_name(url),
+            "moved_to": moved,
+        }
+
     if status and status >= 400:
         return {
             "url": url,
@@ -746,13 +742,11 @@ def audit(url):
         family_future = ex.submit(measured, check_family_owner_story, html, base_url)
         preneed_future = ex.submit(measured, check_preneed_form, html, base_url)
         obit_future = ex.submit(measured, check_recent_obituary, html, base_url)
-        livestream_future = ex.submit(measured, check_livestream_offering, html, base_url)
 
         psi = psi_future.result()
         family_pass = family_future.result()
         preneed_pass = preneed_future.result()
         obit = obit_future.result()
-        livestream_pass = livestream_future.result()
 
     checks = {
         "real_photos": check_real_photos(html),
@@ -762,7 +756,6 @@ def audit(url):
         "localbusiness_schema": check_local_business_schema(html),
         "google_reviews_widget": check_google_reviews_widget(html),
         "recent_obituary": obit.get("pass"),
-        "livestream_offering": livestream_pass,
     }
 
     return {
